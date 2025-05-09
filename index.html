@@ -128,33 +128,32 @@
     });
 
     async function fetchChatGPT(diseaseName) {
-      const apiKey = "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";  // ← 替換成你的 OpenAI 金鑰
+      try {
+        const response = await fetch("https://project-gjre.onrender.com/chatgpt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "gpt-4",
+            messages: [
+              {
+                role: "system",
+                content: "你是一個植物病害助手，只能用簡單中文回覆，請用300字完整回答，不準使用不確定語氣。"
+              },
+              {
+                role: "user",
+                content: `不用解釋「${diseaseName}」，只給出治療方法及如何預防。`
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 300
+          })
+        });
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: "你是一個植物病害助手，只能用簡單中文回覆，請用300字完整回答，不準使用不確定語氣。",
-            },
-            {
-              role: "user",
-              content: `不用解釋「${diseaseName}」，只給出治療方法及如何預防。`,
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 300
-        })
-      });
-
-      const data = await response.json();
-      return data.choices?.[0]?.message?.content || "ChatGPT 無法取得回覆。";
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || "ChatGPT 無法取得回覆。";
+      } catch (err) {
+        return "無法連接後端服務，請稍後再試。";
+      }
     }
 
     async function predict(imageElement) {
@@ -171,7 +170,7 @@
 
       try {
         resultElement.innerHTML = "<p class='loading'>辨識植物種類中...</p>";
-        const speciesPred = await speciesModel.executeAsync({'input:0': tensor});
+        const speciesPred = await speciesModel.executeAsync({ 'input:0': tensor });
         const speciesIdx = tf.argMax(speciesPred, 1).dataSync()[0];
         const species = SPECIES_CLASSES[speciesIdx];
 
@@ -181,12 +180,12 @@
           diseaseModels[species] = await tf.loadGraphModel(DISEASE_MODEL_URLS[species]);
         }
 
-        const diseasePred = await diseaseModels[species].executeAsync({'input:0': tensor});
+        const diseasePred = await diseaseModels[species].executeAsync({ 'input:0': tensor });
         const probabilities = await tf.softmax(diseasePred).data();
         const bestIdx = tf.argMax(probabilities).dataSync()[0];
         const disease = DISEASE_CLASSES[species][bestIdx];
 
-        resultElement.innerHTML = `<h3>辨識結果僅供參考：</h3><p><strong>${disease}</strong></p><p class='loading'></p>`;
+        resultElement.innerHTML = `<h3>辨識結果僅供參考：</h3><p><strong>${disease}</strong></p><p class='loading'>取得建議中...</p>`;
 
         const gptReply = await fetchChatGPT(disease);
         resultElement.innerHTML += `<p>${gptReply}</p>`;
