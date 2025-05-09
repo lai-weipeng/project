@@ -13,7 +13,7 @@ app.use(express.json());
 
 app.post("/chatgpt", async (req, res) => {
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -21,10 +21,18 @@ app.post("/chatgpt", async (req, res) => {
       },
       body: JSON.stringify(req.body),
     });
-    const data = await response.json();
+
+    if (!openaiResponse.ok) {
+      const errorText = await openaiResponse.text();
+      console.error("OpenAI API 錯誤:", errorText);
+      return res.status(500).json({ error: "OpenAI API 錯誤", details: errorText });
+    }
+
+    const data = await openaiResponse.json();
     res.json(data);
   } catch (err) {
-    res.status(500).send("後端錯誤: " + err.message);
+    console.error("伺服器錯誤:", err);
+    res.status(500).json({ error: "伺服器內部錯誤", details: err.message });
   }
 });
 
